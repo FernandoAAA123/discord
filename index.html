@@ -334,7 +334,13 @@ input[type=color]{width:32px;height:32px;border:none;border-radius:var(--r-xs);c
 .list-item-row:hover{background:var(--bg-4);}
 .section-title{font-size:.67rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px;margin-top:18px;}
 .invite-code-box{background:var(--bg-3);border-radius:var(--r-sm);padding:10px 14px;font-family:monospace;font-size:.875rem;color:var(--accent-g);display:flex;align-items:center;justify-content:space-between;margin-top:8px;border:1.5px solid var(--border);}
-.nova-tag{display:inline-flex;align-items:center;gap:4px;background:var(--accent-glow);border:1px solid rgba(124,58,237,.25);border-radius:20px;padding:2px 8px;font-size:.63rem;font-weight:700;color:var(--accent-g);}
+/* THEME CARDS in settings */
+.theme-card{background:var(--bg-3);border:2px solid var(--border);border-radius:var(--r-sm);padding:8px;cursor:pointer;text-align:center;transition:all .15s;font-size:.78rem;color:var(--text-2);font-weight:600;}
+.theme-card:hover{border-color:var(--accent);color:var(--text-0);}
+.theme-card.active{border-color:var(--accent);color:var(--accent-g);background:var(--accent-glow);}
+.theme-preview{height:40px;border-radius:var(--r-xs);margin-bottom:6px;}
+/* THEME BAR — hidden, moved to settings */
+#theme-bar{display:none;}
 .live-badge{position:fixed;top:12px;right:16px;z-index:999;}
 .pinned-bar{background:rgba(245,158,11,.07);border-left:3px solid var(--yellow);padding:6px 12px;margin:0 16px 8px;border-radius:0 var(--r-xs) var(--r-xs) 0;font-size:.78rem;color:var(--yellow);display:none;}
 .pinned-bar.show{display:block;}
@@ -530,18 +536,20 @@ input[type=color]{width:32px;height:32px;border:none;border-radius:var(--r-xs);c
   <div class="modal">
     <button class="close-btn" onclick="closeModal('create-server-modal')">✕</button>
     <h2>Crear servidor</h2>
-    <label>Nombre</label><input type="text" id="new-server-name" placeholder="Mi servidor">
-    <label>Ícono (emoji)</label><input type="text" id="new-server-icon" placeholder="🎮" maxlength="2">
-    <label>Descripción</label><input type="text" id="new-server-desc" placeholder="Opcional">
-    <label>Color</label>
-    <div class="color-picker-row" id="server-color-picker">
-      <div class="color-dot selected" style="background:#5865f2" data-color="#5865f2" onclick="selectServerColor(this)"></div>
-      <div class="color-dot" style="background:#eb459e" data-color="#eb459e" onclick="selectServerColor(this)"></div>
-      <div class="color-dot" style="background:#3ba55d" data-color="#3ba55d" onclick="selectServerColor(this)"></div>
-      <div class="color-dot" style="background:#faa81a" data-color="#faa81a" onclick="selectServerColor(this)"></div>
-      <div class="color-dot" style="background:#ed4245" data-color="#ed4245" onclick="selectServerColor(this)"></div>
-      <input type="color" value="#5865f2" onchange="state.serverSelectedColor=this.value">
+    <!-- Icon preview + upload -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px;">
+      <div id="new-server-icon-preview" onclick="document.getElementById('new-server-icon-file').click()"
+        style="width:64px;height:64px;border-radius:16px;background:var(--bg-4);display:flex;align-items:center;justify-content:center;font-size:2rem;cursor:pointer;border:2px dashed var(--border);overflow:hidden;flex-shrink:0;transition:border-color .15s;"
+        title="Subir imagen">📷</div>
+      <div style="flex:1;">
+        <div style="font-size:.78rem;color:var(--text-2);margin-bottom:6px;">Haz clic en el ícono para subir una imagen, o escribe un emoji:</div>
+        <input type="text" id="new-server-icon-emoji" placeholder="🎮" maxlength="2" style="width:80px;" oninput="previewServerIconEmoji(this.value)">
+      </div>
     </div>
+    <input type="file" id="new-server-icon-file" accept="image/*" style="display:none" onchange="handleServerIconUpload(this,'new-server-icon-preview','new-server-icon-b64')">
+    <input type="hidden" id="new-server-icon-b64">
+    <label>Nombre</label><input type="text" id="new-server-name" placeholder="Mi servidor">
+    <label>Descripción</label><input type="text" id="new-server-desc" placeholder="Opcional">
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('create-server-modal')">Cancelar</button>
       <button class="btn btn-primary" onclick="createServer()">Crear</button>
@@ -573,17 +581,37 @@ input[type=color]{width:32px;height:32px;border:none;border-radius:var(--r-xs);c
 </div>
 
 <div class="modal-overlay" id="user-settings-modal">
-  <div class="modal">
+  <div class="modal" style="width:560px;">
     <button class="close-btn" onclick="closeModal('user-settings-modal')">✕</button>
-    <h2>Mi perfil</h2>
+    <h2>Configuración</h2>
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchTab('us',0,this)">Perfil</button>
-      <button class="tab-btn" onclick="switchTab('us',1,this)">Color</button>
+      <button class="tab-btn" onclick="switchTab('us',1,this)">Apariencia</button>
+      <button class="tab-btn" onclick="switchTab('us',2,this)">Privacidad</button>
+      <button class="tab-btn" onclick="switchTab('us',3,this)">Cuenta</button>
     </div>
+
+    <!-- TAB 0: PERFIL -->
     <div class="tab-content active" id="us-tab-0">
+      <!-- Banner + Avatar preview -->
+      <div style="position:relative;margin-bottom:48px;">
+        <div id="us-banner-preview" onclick="document.getElementById('us-banner-file').click()"
+          style="height:80px;border-radius:var(--r-sm);background:var(--accent);cursor:pointer;overflow:hidden;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5);font-size:.78rem;transition:opacity .15s;"
+          title="Cambiar banner">Clic para subir banner</div>
+        <input type="file" id="us-banner-file" accept="image/*" style="display:none" onchange="handleImgUpload(this,'us-banner-preview','us-banner-b64',800,200)">
+        <input type="hidden" id="us-banner-b64">
+        <div style="position:absolute;bottom:-36px;left:16px;display:flex;align-items:flex-end;gap:10px;">
+          <div id="us-avatar-preview" onclick="document.getElementById('us-avatar-file').click()"
+            style="width:72px;height:72px;border-radius:18px;border:4px solid var(--bg-2);background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:#fff;cursor:pointer;overflow:hidden;flex-shrink:0;"
+            title="Cambiar foto">?</div>
+          <input type="file" id="us-avatar-file" accept="image/*" style="display:none" onchange="handleImgUpload(this,'us-avatar-preview','us-avatar-b64',256,256)">
+          <input type="hidden" id="us-avatar-b64">
+        </div>
+      </div>
       <label>Nombre de usuario</label><input type="text" id="us-username">
-      <label>URL de foto de perfil</label><input type="url" id="us-avatar-url" placeholder="https://...">
-      <label>Estado</label><input type="text" id="us-status" placeholder="¿Qué estás haciendo?">
+      <label>Nombre para mostrar</label><input type="text" id="us-displayname" placeholder="Nombre visible en servidores">
+      <label>Biografía</label><textarea id="us-bio" placeholder="Cuéntanos algo sobre ti..." rows="3" style="resize:vertical;min-height:60px;"></textarea>
+      <label>Estado personalizado</label><input type="text" id="us-status" placeholder="¿Qué estás haciendo?">
       <label>Presencia</label>
       <select id="us-presence">
         <option value="online">🟢 En línea</option>
@@ -591,22 +619,113 @@ input[type=color]{width:32px;height:32px;border:none;border-radius:var(--r-xs);c
         <option value="dnd">🔴 No molestar</option>
         <option value="offline">⚫ Invisible</option>
       </select>
-    </div>
-    <div class="tab-content" id="us-tab-1">
-      <label>Color de avatar</label>
+      <label>Color de avatar (si no hay foto)</label>
       <div class="color-picker-row" id="us-color-row">
-        <div class="color-dot selected" style="background:#5865f2" data-color="#5865f2" onclick="selectAvatarColor(this)"></div>
-        <div class="color-dot" style="background:#eb459e" data-color="#eb459e" onclick="selectAvatarColor(this)"></div>
-        <div class="color-dot" style="background:#3ba55d" data-color="#3ba55d" onclick="selectAvatarColor(this)"></div>
-        <div class="color-dot" style="background:#faa81a" data-color="#faa81a" onclick="selectAvatarColor(this)"></div>
-        <div class="color-dot" style="background:#ed4245" data-color="#ed4245" onclick="selectAvatarColor(this)"></div>
-        <div class="color-dot" style="background:#00b0f4" data-color="#00b0f4" onclick="selectAvatarColor(this)"></div>
-        <input type="color" value="#5865f2" onchange="state.avatarSelectedColor=this.value">
+        <div class="color-dot selected" style="background:#7c3aed" data-color="#7c3aed" onclick="selectAvatarColor(this)"></div>
+        <div class="color-dot" style="background:#ec4899" data-color="#ec4899" onclick="selectAvatarColor(this)"></div>
+        <div class="color-dot" style="background:#10b981" data-color="#10b981" onclick="selectAvatarColor(this)"></div>
+        <div class="color-dot" style="background:#f59e0b" data-color="#f59e0b" onclick="selectAvatarColor(this)"></div>
+        <div class="color-dot" style="background:#f43f5e" data-color="#f43f5e" onclick="selectAvatarColor(this)"></div>
+        <div class="color-dot" style="background:#3b82f6" data-color="#3b82f6" onclick="selectAvatarColor(this)"></div>
+        <div class="color-dot" style="background:#eb7d34" data-color="#eb7d34" onclick="selectAvatarColor(this)"></div>
+        <input type="color" value="#7c3aed" onchange="state.avatarSelectedColor=this.value">
+      </div>
+      <label>Redes sociales</label>
+      <input type="text" id="us-social-twitter" placeholder="Twitter / X (@usuario)">
+      <input type="text" id="us-social-github" placeholder="GitHub (usuario)" style="margin-top:6px;">
+      <input type="text" id="us-social-web" placeholder="Sitio web (https://...)" style="margin-top:6px;">
+    </div>
+
+    <!-- TAB 1: APARIENCIA (TEMAS) -->
+    <div class="tab-content" id="us-tab-1">
+      <p style="font-size:.85rem;color:var(--text-2);margin-bottom:16px;">Personaliza el aspecto de Nova. Todos los temas son gratis.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;" id="theme-grid">
+        <div class="theme-card active" data-theme="purple" onclick="setTheme('purple',this)">
+          <div class="theme-preview" style="background:linear-gradient(135deg,#0b0b0f,#7c3aed)"></div>
+          <span>Morado</span>
+        </div>
+        <div class="theme-card" data-theme="bw" onclick="setTheme('bw',this)">
+          <div class="theme-preview" style="background:linear-gradient(135deg,#000,#fff)"></div>
+          <span>Blanco</span>
+        </div>
+        <div class="theme-card" data-theme="blue" onclick="setTheme('blue',this)">
+          <div class="theme-preview" style="background:linear-gradient(135deg,#07090f,#3b82f6)"></div>
+          <span>Azul</span>
+        </div>
+        <div class="theme-card" data-theme="green" onclick="setTheme('green',this)">
+          <div class="theme-preview" style="background:linear-gradient(135deg,#07100a,#10b981)"></div>
+          <span>Verde</span>
+        </div>
+        <div class="theme-card" data-theme="red" onclick="setTheme('red',this)">
+          <div class="theme-preview" style="background:linear-gradient(135deg,#0f0707,#f43f5e)"></div>
+          <span>Rojo</span>
+        </div>
+        <div class="theme-card" data-theme="pink" onclick="setTheme('pink',this)">
+          <div class="theme-preview" style="background:linear-gradient(135deg,#0f070c,#ec4899)"></div>
+          <span>Rosa</span>
+        </div>
       </div>
     </div>
+
+    <!-- TAB 2: PRIVACIDAD -->
+    <div class="tab-content" id="us-tab-2">
+      <p style="font-size:.85rem;color:var(--text-2);margin-bottom:16px;">Controla quién puede verte e interactuar contigo.</p>
+      <div class="list-item-row">
+        <div style="flex:1;">
+          <div style="font-size:.875rem;color:var(--text-0);font-weight:600;">Mensajes directos</div>
+          <div style="font-size:.75rem;color:var(--text-3);">Quién puede enviarte DMs</div>
+        </div>
+        <select id="us-dm-privacy" style="width:auto;background:var(--bg-4);border:1px solid var(--border);border-radius:var(--r-xs);padding:5px 8px;color:var(--text-1);font-family:var(--font);font-size:.8rem;outline:none;">
+          <option value="all">Todos en mis servidores</option>
+          <option value="friends">Solo amigos</option>
+          <option value="none">Nadie</option>
+        </select>
+      </div>
+      <div class="list-item-row" style="margin-top:6px;">
+        <div style="flex:1;">
+          <div style="font-size:.875rem;color:var(--text-0);font-weight:600;">Mostrar presencia</div>
+          <div style="font-size:.75rem;color:var(--text-3);">Otros pueden ver si estás en línea</div>
+        </div>
+        <div class="toggle on" id="us-show-presence" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="list-item-row" style="margin-top:6px;">
+        <div style="flex:1;">
+          <div style="font-size:.875rem;color:var(--text-0);font-weight:600;">Solicitudes de amistad</div>
+          <div style="font-size:.75rem;color:var(--text-3);">Quién puede enviarte solicitudes</div>
+        </div>
+        <select id="us-friend-req" style="width:auto;background:var(--bg-4);border:1px solid var(--border);border-radius:var(--r-xs);padding:5px 8px;color:var(--text-1);font-family:var(--font);font-size:.8rem;outline:none;">
+          <option value="all">Todos</option>
+          <option value="mutual">Servidores mutuos</option>
+          <option value="none">Nadie</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- TAB 3: CUENTA -->
+    <div class="tab-content" id="us-tab-3">
+      <div class="list-item-row">
+        <div style="flex:1;">
+          <div style="font-size:.875rem;color:var(--text-0);font-weight:600;">Correo electrónico</div>
+          <div style="font-size:.75rem;color:var(--text-3);" id="us-email-display">—</div>
+        </div>
+      </div>
+      <div class="list-item-row" style="margin-top:6px;">
+        <div style="flex:1;">
+          <div style="font-size:.875rem;color:var(--text-0);font-weight:600;">ID de usuario</div>
+          <div style="font-size:.72rem;color:var(--text-3);font-family:monospace;" id="us-uid-display">—</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="copyUID()">Copiar</button>
+      </div>
+      <div style="margin-top:20px;padding:14px;background:rgba(244,63,94,.05);border:1px solid rgba(244,63,94,.15);border-radius:var(--r-sm);">
+        <div style="font-size:.875rem;font-weight:600;color:var(--red);margin-bottom:6px;">⚠️ Zona de peligro</div>
+        <div style="font-size:.78rem;color:var(--text-3);margin-bottom:12px;">Esta acción es permanente e irreversible.</div>
+        <button class="btn btn-danger" style="width:100%;" onclick="deleteMyAccount()">🗑️ Eliminar cuenta permanentemente</button>
+      </div>
+    </div>
+
     <div class="modal-actions">
-      <button class="btn btn-danger" onclick="deleteMyAccount()">🗑️ Eliminar cuenta</button>
-      <button class="btn btn-primary" onclick="saveUserSettings()">Guardar</button>
+      <button class="btn btn-ghost" onclick="closeModal('user-settings-modal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveUserSettings()">Guardar cambios</button>
     </div>
   </div>
 </div>
@@ -622,8 +741,20 @@ input[type=color]{width:32px;height:32px;border:none;border-radius:var(--r-xs);c
       <button class="tab-btn" onclick="switchTab('ss',3,this)">Invitar</button>
     </div>
     <div class="tab-content active" id="ss-tab-0">
-      <label>Nombre</label><input type="text" id="ss-server-name">
-      <label>Ícono</label><input type="text" id="ss-server-icon" maxlength="2">
+      <!-- Icon upload -->
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;">
+        <div id="ss-server-icon-preview" onclick="document.getElementById('ss-server-icon-file').click()"
+          style="width:64px;height:64px;border-radius:16px;background:var(--bg-4);display:flex;align-items:center;justify-content:center;font-size:2rem;cursor:pointer;border:2px dashed var(--border);overflow:hidden;flex-shrink:0;"
+          title="Cambiar ícono">📷</div>
+        <input type="file" id="ss-server-icon-file" accept="image/*" style="display:none" onchange="handleServerIconUpload(this,'ss-server-icon-preview','ss-server-icon-b64')">
+        <input type="hidden" id="ss-server-icon-b64">
+        <div style="flex:1;">
+          <div style="font-size:.78rem;color:var(--text-2);margin-bottom:6px;">Imagen o emoji como ícono</div>
+          <input type="text" id="ss-server-icon" maxlength="2" placeholder="🎮" style="width:70px;" oninput="previewServerIconEmoji(this.value,'ss-server-icon-preview')">
+        </div>
+      </div>
+      <label>Nombre del servidor</label><input type="text" id="ss-server-name">
+      <label>Descripción</label><input type="text" id="ss-server-desc" placeholder="Sobre este servidor...">
       <div class="modal-actions">
         <button class="btn btn-danger" onclick="deleteCurrentServer()">🗑️ Eliminar</button>
         <button class="btn btn-primary" onclick="saveServerSettings()">Guardar</button>
@@ -634,11 +765,21 @@ input[type=color]{width:32px;height:32px;border:none;border-radius:var(--r-xs);c
       <button class="btn btn-ghost" style="margin-top:10px;width:100%;" onclick="addRole()">＋ Agregar rol</button>
     </div>
     <div class="tab-content" id="ss-tab-2">
-      <p style="font-size:.85rem;color:var(--text-2);margin-bottom:12px;">Agrega emojis animados por URL (GIF, PNG, etc.)</p>
-      <label>Nombre del emoji</label><input type="text" id="ce-name" placeholder="coolface">
-      <label>URL de imagen</label><input type="url" id="ce-url" placeholder="https://...gif">
-      <button class="btn btn-primary" style="margin-top:10px;width:100%;" onclick="addCustomEmoji()">Agregar emoji</button>
-      <div id="ce-list" style="margin-top:16px;display:grid;grid-template-columns:repeat(5,1fr);gap:8px;"></div>
+      <p style="font-size:.85rem;color:var(--text-2);margin-bottom:14px;">Sube emojis personalizados desde tu dispositivo (PNG, GIF, WebP — máx 100KB).</p>
+      <div style="display:flex;gap:10px;align-items:flex-end;">
+        <div>
+          <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);margin-bottom:5px;">Vista previa</div>
+          <div id="ce-preview" style="width:48px;height:48px;border-radius:var(--r-xs);background:var(--bg-4);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;font-size:1.6rem;" onclick="document.getElementById('ce-file').click()" title="Subir emoji">＋</div>
+          <input type="file" id="ce-file" accept="image/*" style="display:none" onchange="handleEmojiUpload(this)">
+          <input type="hidden" id="ce-b64">
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);margin-bottom:5px;">Nombre</div>
+          <input type="text" id="ce-name" placeholder="nombre_emoji" style="margin:0;">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="addCustomEmoji()" style="flex-shrink:0;margin-bottom:0;">Agregar</button>
+      </div>
+      <div id="ce-list" style="margin-top:16px;display:grid;grid-template-columns:repeat(6,1fr);gap:8px;"></div>
     </div>
     <div class="tab-content" id="ss-tab-3">
       <p style="font-size:.85rem;color:var(--text-2);">Comparte este código para invitar a otros.</p>
@@ -881,9 +1022,15 @@ function renderServerBar(){
   state.servers.forEach(srv=>{
     const div=document.createElement('div');
     div.className='server-icon'+(srv.id===state.currentServerId?' active':'');
-    div.title=srv.name;div.style.fontSize='1.4rem';
-    div.textContent=srv.icon||srv.name[0];
-    if(srv.id===state.currentServerId)div.style.background=srv.color||'var(--accent)';
+    div.title=srv.name;
+    if(srv.iconImg){
+      // Image icon
+      div.innerHTML=`<img src="${srv.iconImg}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`;
+    } else {
+      div.style.fontSize='1.3rem';
+      div.textContent=srv.icon||srv.name[0];
+      if(srv.id===state.currentServerId)div.style.background=srv.color||'var(--accent)';
+    }
     div.onclick=()=>selectServer(srv.id);
     div.oncontextmenu=e=>{e.preventDefault();showServerCtx(e,srv);};
     el.appendChild(div);
@@ -995,12 +1142,24 @@ function renderMembersPanel(){
   const el=document.getElementById('members-list');el.innerHTML='';
   const srv=getServer(state.currentServerId);
   if(state.currentServerId==='__dm__'){
-    const all=Object.values(state.onlineUsers);
-    const cat=document.createElement('div');cat.className='members-category';cat.textContent=`EN LÍNEA — ${all.length}`;el.appendChild(cat);
-    all.forEach(u=>el.appendChild(buildMemberEl({uid:u.uid,id:u.uid,name:u.name,color:u.avatarColor,avatarUrl:u.avatarUrl,roles:[]},true)));
+    // In DM view: only show friends and members of mutual servers
+    const myServerMemberIds=new Set();
+    state.servers.forEach(s=>{
+      if((s.members||[]).find(m=>(m.uid||m.id)===state.currentUser.uid)){
+        (s.members||[]).forEach(m=>myServerMemberIds.add(m.uid||m.id));
+      }
+    });
+    const visible=Object.values(state.onlineUsers).filter(u=>u.uid!==state.currentUser.uid&&myServerMemberIds.has(u.uid));
+    if(!visible.length){
+      el.innerHTML='<div style="padding:20px 12px;color:var(--text-3);font-size:.8rem;text-align:center;line-height:1.6;">Solo ves miembros de tus servidores.<br>Únete a un servidor para ver más personas.</div>';
+      return;
+    }
+    const cat=document.createElement('div');cat.className='members-category';cat.textContent=`EN LÍNEA — ${visible.length}`;el.appendChild(cat);
+    visible.forEach(u=>el.appendChild(buildMemberEl({uid:u.uid,id:u.uid,name:u.name,color:u.avatarColor,avatarUrl:u.avatarUrl,roles:[]},true)));
     return;
   }
   if(!srv)return;
+  // Server view: only show members of THIS server
   const onlineIds=new Set(Object.keys(state.onlineUsers));
   const members=srv.members||[];
   const online=members.filter(m=>onlineIds.has(m.uid||m.id));
@@ -1170,21 +1329,36 @@ function deleteChannel(chId,srvId){
 // ── SERVERS ──
 function createServer(){
   const name=document.getElementById('new-server-name').value.trim();if(!name){showToast('⚠️ Nombre requerido');return;}
-  const icon=document.getElementById('new-server-icon').value.trim()||name[0];
+  const iconB64=document.getElementById('new-server-icon-b64').value;
+  const iconEmoji=document.getElementById('new-server-icon-emoji').value.trim()||name[0];
+  const icon=iconEmoji; // emoji fallback
+  const iconImg=iconB64||''; // base64 image if uploaded
   const desc=document.getElementById('new-server-desc').value.trim();
   const id='s'+genId(10);
-  const srv={id,name,icon,color:state.serverSelectedColor,desc,ownerId:state.currentUser.uid,
+  const srv={id,name,icon,iconImg,color:state.serverSelectedColor||'#7c3aed',desc,ownerId:state.currentUser.uid,
+    private:true, // all servers private by default
     channels:[{id:'cat'+id+'0',name:'TEXTO',type:'category',children:[{id:'ch'+genId(8),name:'general',type:'text',private:false},{id:'ch'+genId(8),name:'anuncios',type:'announcement',private:false}]},{id:'cat'+id+'1',name:'VOZ',type:'category',children:[{id:'ch'+genId(8),name:'General',type:'voice',private:false}]}],
     members:[{uid:state.currentUser.uid,id:state.currentUser.uid,name:state.currentUser.name,color:state.currentUser.avatarColor,avatarUrl:state.currentUser.avatarUrl||'',roles:['Admin']}],
-    roles:[{id:'r1',name:'Admin',color:'#ed4245',hoist:true},{id:'r2',name:'Moderador',color:'#faa81a',hoist:true},{id:'r3',name:'Miembro',color:'#7289da',hoist:false}],
+    roles:[{id:'r1',name:'Admin',color:'#f43f5e',hoist:true},{id:'r2',name:'Moderador',color:'#f59e0b',hoist:true},{id:'r3',name:'Miembro',color:'#7c3aed',hoist:false}],
     customEmojis:[],inviteCode:genId(8)};
-  state.servers.push(srv);saveServers();closeModal('create-server-modal');document.getElementById('new-server-name').value='';selectServer(id);showToast('✅ Servidor "'+name+'" creado');
+  state.servers.push(srv);saveServers();closeModal('create-server-modal');
+  document.getElementById('new-server-name').value='';
+  document.getElementById('new-server-icon-b64').value='';
+  document.getElementById('new-server-icon-emoji').value='';
+  document.getElementById('new-server-icon-preview').innerHTML='📷';
+  selectServer(id);showToast('✅ Servidor "'+name+'" creado');
 }
 function openServerSettings(){
   const srv=getServer(state.currentServerId);if(!srv)return;
   document.getElementById('ss-title').textContent=srv.name;
   document.getElementById('ss-server-name').value=srv.name;
   document.getElementById('ss-server-icon').value=srv.icon||'';
+  document.getElementById('ss-server-desc').value=srv.desc||'';
+  // Show existing icon
+  const iconPreview=document.getElementById('ss-server-icon-preview');
+  if(srv.iconImg){iconPreview.innerHTML=`<img src="${srv.iconImg}" style="width:100%;height:100%;object-fit:cover;border-radius:14px;">`;}
+  else{iconPreview.innerHTML=`<span style="font-size:2rem;">${srv.icon||'🌐'}</span>`;}
+  document.getElementById('ss-server-icon-b64').value='';
   renderRolesList(srv);renderCustomEmojiList(srv);
   document.getElementById('invite-code-text').textContent=srv.inviteCode||genId(8);
   openModal('server-settings-modal');
@@ -1192,7 +1366,11 @@ function openServerSettings(){
 function saveServerSettings(){
   const srv=getServer(state.currentServerId);if(!srv)return;
   srv.name=document.getElementById('ss-server-name').value.trim()||srv.name;
-  srv.icon=document.getElementById('ss-server-icon').value.trim()||srv.icon;
+  const newIcon=document.getElementById('ss-server-icon').value.trim();
+  if(newIcon)srv.icon=newIcon;
+  const newIconB64=document.getElementById('ss-server-icon-b64').value;
+  if(newIconB64)srv.iconImg=newIconB64;
+  srv.desc=document.getElementById('ss-server-desc').value.trim();
   saveServers();closeModal('server-settings-modal');renderAll();showToast('✅ Guardado');
 }
 function deleteCurrentServer(){
@@ -1243,20 +1421,26 @@ function deleteRole(idx){const srv=getServer(state.currentServerId);if(!srv)retu
 // ── CUSTOM EMOJIS ──
 function addCustomEmoji(){
   const name=document.getElementById('ce-name').value.trim().toLowerCase().replace(/\s+/g,'_');
-  const url=document.getElementById('ce-url').value.trim();
-  if(!name||!url){showToast('⚠️ Nombre y URL requeridos');return;}
+  const b64=document.getElementById('ce-b64').value;
+  if(!name){showToast('⚠️ Nombre requerido');return;}
+  if(!b64){showToast('⚠️ Sube una imagen primero');return;}
   const srv=getServer(state.currentServerId);if(!srv)return;
   if(!srv.customEmojis)srv.customEmojis=[];
-  srv.customEmojis.push({name,url});
-  saveServers();document.getElementById('ce-name').value='';document.getElementById('ce-url').value='';
+  if(srv.customEmojis.length>=50){showToast('⚠️ Máximo 50 emojis por servidor');return;}
+  srv.customEmojis.push({name,url:b64});
+  saveServers();
+  document.getElementById('ce-name').value='';
+  document.getElementById('ce-b64').value='';
+  document.getElementById('ce-preview').innerHTML='＋';
   renderCustomEmojiList(srv);showToast('✅ Emoji :'+name+': agregado');
 }
 function renderCustomEmojiList(srv){
   const el=document.getElementById('ce-list');el.innerHTML='';
   (srv.customEmojis||[]).forEach((e,i)=>{
     const div=document.createElement('div');
-    div.style.cssText='text-align:center;background:var(--bg-3);border-radius:6px;padding:8px;position:relative;';
-    div.innerHTML=`<img src="${e.url}" style="width:36px;height:36px;object-fit:contain" title=":${e.name}:"><div style="font-size:.65rem;color:var(--text-3);margin-top:4px">:${e.name}:</div><button onclick="deleteCustomEmoji(${i})" style="position:absolute;top:2px;right:2px;background:none;border:none;color:var(--red);cursor:pointer;font-size:.75rem;">✕</button>`;
+    div.style.cssText='text-align:center;background:var(--bg-3);border-radius:8px;padding:8px 4px;position:relative;cursor:pointer;';
+    div.title=':'+e.name+':';
+    div.innerHTML=`<img src="${e.url}" style="width:36px;height:36px;object-fit:contain;border-radius:4px;display:block;margin:0 auto;"><div style="font-size:.6rem;color:var(--text-3);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">:${e.name}:</div><button onclick="deleteCustomEmoji(${i})" style="position:absolute;top:2px;right:2px;background:var(--bg-5);border:none;color:var(--red);cursor:pointer;font-size:.65rem;border-radius:3px;padding:1px 3px;line-height:1;">✕</button>`;
     el.appendChild(div);
   });
 }
@@ -1287,18 +1471,35 @@ function showProfilePopup(event,uid){
 }
 function showProfilePopupByUid(event,uid,info){
   const popup=document.getElementById('profile-popup');
-  // Resolve info if not passed
   if(!info){
     const srv=getServer(state.currentServerId);
     info=(srv?.members||[]).find(m=>(m.uid||m.id)===uid)||state.onlineUsers[uid]||{};
   }
-  const u=info;const name=u.name||'?';const color=u.avatarColor||u.color||'#5865f2';const avatarUrl=u.avatarUrl||'';
-  document.getElementById('pp-banner').style.background=`linear-gradient(135deg,${color},${color}88)`;
+  // Try to get full profile from onlineUsers (has more data)
+  const fullUser=state.onlineUsers[uid]||{};
+  const u={...info,...fullUser};
+  const name=u.name||'?';const color=u.avatarColor||u.color||'#7c3aed';const avatarUrl=u.avatarUrl||'';
+  const bannerUrl=u.bannerUrl||'';
+  // Banner
+  const bannerEl=document.getElementById('pp-banner');
+  if(bannerUrl){bannerEl.style.backgroundImage=`url(${bannerUrl})`;bannerEl.style.backgroundSize='cover';bannerEl.style.backgroundPosition='center';bannerEl.style.background='';}
+  else{bannerEl.style.backgroundImage='';bannerEl.style.background=`linear-gradient(135deg,${color},${color}66)`;}
   const avaEl=document.getElementById('pp-ava');avaEl.style.background=avatarUrl?'#000':color;
   avaEl.innerHTML=avatarUrl?`<img src="${avatarUrl}" onerror="this.style.display='none'">`:(name[0]||'?').toUpperCase();
-  document.getElementById('pp-name').textContent=name;
+  document.getElementById('pp-name').textContent=u.displayName||name;
   document.getElementById('pp-tag').textContent=u.tag||'';
-  document.getElementById('pp-status').textContent=u.customStatus||'';
+  // Status + bio
+  const statusEl=document.getElementById('pp-status');
+  statusEl.innerHTML='';
+  if(u.customStatus){const s=document.createElement('div');s.style.cssText='font-size:.78rem;color:var(--text-2);font-style:italic;margin-bottom:6px;';s.textContent=u.customStatus;statusEl.appendChild(s);}
+  if(u.bio){const b=document.createElement('div');b.style.cssText='font-size:.8rem;color:var(--text-2);line-height:1.5;margin-bottom:8px;padding:8px;background:var(--bg-3);border-radius:var(--r-xs);';b.textContent=u.bio;statusEl.appendChild(b);}
+  // Social links
+  const social=u.social||{};
+  const links=[];
+  if(social.twitter)links.push(`<a href="https://twitter.com/${social.twitter.replace('@','')}" target="_blank" style="color:var(--accent-g);font-size:.75rem;text-decoration:none;">🐦 ${social.twitter}</a>`);
+  if(social.github)links.push(`<a href="https://github.com/${social.github}" target="_blank" style="color:var(--accent-g);font-size:.75rem;text-decoration:none;">🐙 ${social.github}</a>`);
+  if(social.web)links.push(`<a href="${social.web}" target="_blank" style="color:var(--accent-g);font-size:.75rem;text-decoration:none;">🌐 Sitio web</a>`);
+  if(links.length){const linksEl=document.createElement('div');linksEl.style.cssText='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;';linksEl.innerHTML=links.join('');statusEl.appendChild(linksEl);}
   const srv=getServer(state.currentServerId);
   const member=(srv?.members||[]).find(m=>(m.uid||m.id)===uid);
   document.getElementById('pp-roles').innerHTML=(member?.roles||[]).map(r=>{const role=srv?.roles?.find(ro=>ro.id===r||ro.name===r);return role?`<span class="role-badge" style="background:${role.color}25;color:${role.color}">${role.name}</span>`:`<span class="role-badge" style="background:var(--bg-4);color:var(--text-2)">${r}</span>`;}).join('');
@@ -1306,7 +1507,7 @@ function showProfilePopupByUid(event,uid,info){
   if(uid!==state.currentUser.uid){actEl.innerHTML=`<button class="btn btn-primary" style="font-size:.8rem;padding:7px;" onclick="openDM('${uid}')">💬 Mensaje</button>${isServerAdmin(srv)?`<button class="btn btn-ghost" style="font-size:.8rem;padding:7px;" onclick="manageRoles('${uid}')">👑 Roles</button>`:''}`;
   }else{actEl.innerHTML=`<button class="btn btn-ghost" style="font-size:.8rem;padding:7px;width:100%;" onclick="openMyProfile()">⚙️ Editar perfil</button>`;}
   popup.style.left=Math.min(event.clientX+10,window.innerWidth-300)+'px';
-  popup.style.top=Math.min(event.clientY-20,window.innerHeight-320)+'px';
+  popup.style.top=Math.min(event.clientY-20,window.innerHeight-360)+'px';
   popup.classList.add('open');
 }
 function closeProfilePopup(){document.getElementById('profile-popup').classList.remove('open');}
@@ -1359,12 +1560,29 @@ async function deleteMyAccount(){
 }
 function saveUserSettings(){
   const name=document.getElementById('us-username').value.trim();if(!name){showToast('⚠️ Nombre requerido');return;}
-  const avatarUrl=document.getElementById('us-avatar-url').value.trim();
+  const displayName=document.getElementById('us-displayname').value.trim();
+  const bio=document.getElementById('us-bio').value.trim();
   const customStatus=document.getElementById('us-status').value.trim();
   const status=document.getElementById('us-presence').value;
   const avatarColor=state.avatarSelectedColor;
-  state.currentUser={...state.currentUser,name,avatarUrl,customStatus,status,avatarColor};
-  fbSet('users/'+state.currentUser.uid,{uid:state.currentUser.uid,name,tag:state.currentUser.tag,email:state.currentUser.email||'',avatarUrl,avatarColor,status,customStatus,createdAt:state.currentUser.createdAt||Date.now()});
+  const social={
+    twitter:document.getElementById('us-social-twitter').value.trim(),
+    github:document.getElementById('us-social-github').value.trim(),
+    web:document.getElementById('us-social-web').value.trim(),
+  };
+  const privacy={
+    dm:document.getElementById('us-dm-privacy').value,
+    friendReq:document.getElementById('us-friend-req').value,
+    showPresence:document.getElementById('us-show-presence').classList.contains('on'),
+  };
+  // Use uploaded image if available, otherwise keep existing
+  const newAvatarB64=document.getElementById('us-avatar-b64').value;
+  const newBannerB64=document.getElementById('us-banner-b64').value;
+  const avatarUrl=newAvatarB64||state.currentUser.avatarUrl||'';
+  const bannerUrl=newBannerB64||state.currentUser.bannerUrl||'';
+  state.currentUser={...state.currentUser,name,displayName,bio,avatarUrl,bannerUrl,customStatus,status,avatarColor,social,privacy};
+  const userData={uid:state.currentUser.uid,name,displayName,tag:state.currentUser.tag,email:state.currentUser.email||'',avatarUrl,bannerUrl,avatarColor,status,customStatus,bio,social,privacy,createdAt:state.currentUser.createdAt||Date.now()};
+  fbSet('users/'+state.currentUser.uid,userData);
   fbSet('presence/'+state.currentUser.uid,{uid:state.currentUser.uid,name,avatarUrl,avatarColor,status,customStatus,ts:Date.now()});
   state.servers.forEach(srv=>{const m=(srv.members||[]).find(m=>(m.uid||m.id)===state.currentUser.uid);if(m){m.name=name;m.color=avatarColor;m.avatarUrl=avatarUrl;m.avatarColor=avatarColor;}});
   saveServers();closeModal('user-settings-modal');updateUserBar();renderAll();showToast('✅ Perfil actualizado');
@@ -1494,19 +1712,113 @@ window.addEventListener('load',checkMobile);
 
 function setTheme(theme, el) {
   document.documentElement.dataset.theme = theme === 'purple' ? '' : theme;
-  document.querySelectorAll('.theme-dot').forEach(d => d.classList.remove('active'));
+  document.querySelectorAll('.theme-dot,.theme-card').forEach(d => d.classList.remove('active'));
   if (el) el.classList.add('active');
+  // Sync dot in sidebar if present
+  const dot = document.querySelector(`.theme-dot[data-theme="${theme}"]`);
+  if (dot) dot.classList.add('active');
   try { localStorage.setItem('nova_theme', theme); } catch(e) {}
 }
 function loadSavedTheme() {
   try {
-    const t = localStorage.getItem('nova_theme');
-    if (t) {
-      const dot = document.querySelector(`.theme-dot[data-theme="${t}"]`);
-      setTheme(t, dot);
-    }
+    const t = localStorage.getItem('nova_theme') || 'purple';
+    const card = document.querySelector(`.theme-card[data-theme="${t}"]`);
+    const dot = document.querySelector(`.theme-dot[data-theme="${t}"]`);
+    setTheme(t, card || dot);
   } catch(e) {}
 }
+
+// ── IMAGE HELPERS ──
+function compressImage(file, maxW, maxH, maxKB, cb) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      const ratio = Math.min(maxW/w, maxH/h, 1);
+      w = Math.round(w*ratio); h = Math.round(h*ratio);
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      let quality = 0.85, b64 = canvas.toDataURL('image/jpeg', quality);
+      while (b64.length > maxKB*1024*1.37 && quality > 0.2) { quality -= 0.1; b64 = canvas.toDataURL('image/jpeg', quality); }
+      cb(b64);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function handleImgUpload(input, previewId, hiddenId, maxW, maxH) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 5*1024*1024) { showToast('⚠️ Imagen muy grande (máx 5MB)'); return; }
+  compressImage(file, maxW, maxH, maxW > 300 ? 200 : 150, b64 => {
+    const el = document.getElementById(previewId);
+    el.style.backgroundImage = `url(${b64})`;
+    el.style.backgroundSize = 'cover';
+    el.style.backgroundPosition = 'center';
+    el.textContent = '';
+    document.getElementById(hiddenId).value = b64;
+  });
+}
+function handleServerIconUpload(input, previewId, hiddenId) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 3*1024*1024) { showToast('⚠️ Imagen muy grande (máx 3MB)'); return; }
+  compressImage(file, 128, 128, 200, b64 => {
+    const el = document.getElementById(previewId);
+    el.innerHTML = `<img src="${b64}" style="width:100%;height:100%;object-fit:cover;border-radius:14px;">`;
+    document.getElementById(hiddenId).value = b64;
+  });
+}
+function handleEmojiUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 1*1024*1024) { showToast('⚠️ Muy grande (máx 1MB)'); return; }
+  compressImage(file, 64, 64, 100, b64 => {
+    const el = document.getElementById('ce-preview');
+    el.innerHTML = `<img src="${b64}" style="width:100%;height:100%;object-fit:contain;border-radius:4px;">`;
+    document.getElementById('ce-b64').value = b64;
+  });
+}
+function previewServerIconEmoji(val, previewId) {
+  const id = previewId || 'new-server-icon-preview';
+  const el = document.getElementById(id); if (!el) return;
+  el.innerHTML = val ? `<span style="font-size:2rem;">${val}</span>` : '📷';
+}
+function copyUID() {
+  navigator.clipboard.writeText(state.currentUser?.uid||'').then(()=>showToast('✅ UID copiado'));
+}
+
+// ── OPEN USER SETTINGS (full) ──
+function openUserSettings() {
+  const u = state.currentUser; if (!u) return;
+  document.getElementById('us-username').value = u.name || '';
+  document.getElementById('us-displayname').value = u.displayName || '';
+  document.getElementById('us-bio').value = u.bio || '';
+  document.getElementById('us-status').value = u.customStatus || '';
+  document.getElementById('us-presence').value = u.status || 'online';
+  document.getElementById('us-social-twitter').value = u.social?.twitter || '';
+  document.getElementById('us-social-github').value = u.social?.github || '';
+  document.getElementById('us-social-web').value = u.social?.web || '';
+  document.getElementById('us-dm-privacy').value = u.privacy?.dm || 'all';
+  document.getElementById('us-friend-req').value = u.privacy?.friendReq || 'all';
+  const showP = document.getElementById('us-show-presence');
+  if (u.privacy?.showPresence===false) showP.classList.remove('on'); else showP.classList.add('on');
+  const avaEl = document.getElementById('us-avatar-preview');
+  if (u.avatarUrl) { avaEl.innerHTML=`<img src="${u.avatarUrl}" style="width:100%;height:100%;object-fit:cover;">`; }
+  else { avaEl.style.background=u.avatarColor||'#7c3aed'; avaEl.textContent=(u.name||'?')[0].toUpperCase(); }
+  const banEl = document.getElementById('us-banner-preview');
+  if (u.bannerUrl) { banEl.style.backgroundImage=`url(${u.bannerUrl})`;banEl.style.backgroundSize='cover';banEl.style.backgroundPosition='center';banEl.textContent=''; }
+  else { banEl.style.backgroundImage='';banEl.style.background=u.avatarColor||'var(--accent)'; }
+  const emailEl=document.getElementById('us-email-display');
+  const uidEl=document.getElementById('us-uid-display');
+  if(emailEl)emailEl.textContent=window._firebaseAuth?.currentUser?.email||'—';
+  if(uidEl)uidEl.textContent=u.uid||'—';
+  state.avatarSelectedColor = u.avatarColor||'#7c3aed';
+  document.getElementById('us-avatar-b64').value='';
+  document.getElementById('us-banner-b64').value='';
+  openModal('user-settings-modal');
+  closeProfilePopup();
+}
+
 
 // ── UTILS ──
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._to);t._to=setTimeout(()=>t.classList.remove('show'),3000);}
