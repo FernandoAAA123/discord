@@ -9,7 +9,7 @@
   import { getDatabase, ref, set, push, onValue, onChildAdded, onDisconnect, remove, get, off, update }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
   import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword,
-    signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, setPersistence, browserLocalStoragePersistence }
+    signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, setPersistence, browserLocalPersistence }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   const firebaseConfig = {
@@ -28,7 +28,7 @@
   const db   = getDatabase(app);
 
   // Persist session in localStorage — no more re-login every visit
-  setPersistence(auth, browserLocalStoragePersistence).catch(()=>{});
+  setPersistence(auth, browserLocalPersistence).catch(()=>{});
 
   window._db  = db;
   window._auth = auth;
@@ -946,13 +946,18 @@ async function doSignOut(){
 
 // ── ON LOGIN ──
 async function onUserLoggedIn(firebaseUser){
-  // Show loading overlay
   showLoadingOverlay('Cargando tu perfil...');
+  // Timeout helper
+  const withTimeout=(promise,ms,fallback)=>Promise.race([promise,new Promise(r=>setTimeout(()=>r(fallback),ms))]);
   await initUserProfile(firebaseUser,firebaseUser.displayName,firebaseUser.photoURL);
-  const snap=await fbGet('users/'+firebaseUser.uid);
-  const profile=snap.exists()?snap.val():{};
-  state.currentUser={...profile,uid:firebaseUser.uid,email:firebaseUser.email||''};
-  state.avatarSelectedColor=profile.avatarColor||'#7c3aed';
+  const snap=await withTimeout(fbGet('users/'+firebaseUser.uid),5000,null);
+  const profile=snap&&snap.exists?.()?snap.val():{};
+  state.currentUser={...profile,uid:firebaseUser.uid,email:firebaseUser.email||'',
+    name:profile.name||firebaseUser.displayName||'Usuario',
+    avatarColor:profile.avatarColor||'#7c3aed',
+    status:profile.status||'online',
+  };
+  state.avatarSelectedColor=state.currentUser.avatarColor;
 
   const presRef=fbRef('presence/'+state.currentUser.uid);
   await window._fbSet(presRef,{uid:state.currentUser.uid,name:state.currentUser.name,avatarUrl:state.currentUser.avatarUrl||'',avatarColor:state.currentUser.avatarColor,status:state.currentUser.status||'online',customStatus:state.currentUser.customStatus||'',ts:Date.now()});
@@ -2195,9 +2200,26 @@ function fmtDateTime(ts){const d=new Date(ts),t=new Date();return d.toDateString
 // ── INIT ──
 document.addEventListener('firebase-ready',()=>{
   loadSavedTheme();
-  window._fbOnAuthStateChanged(user=>{
+  // Safety timeout — if Firebase never responds, show login after 8s
+  const loadTimeout=setTimeout(()=>{
+    hideLoadingOverlay();
+    document.getElementById('auth-screen').style.display='flex';
+  },8000);
+  window._fbOnAuthStateChanged(async user=>{
+    clearTimeout(loadTimeout);
     if(user){
-      onUserLoggedIn(user);
+      try{
+        await onUserLoggedIn(user);
+      }catch(err){
+        console.error('Login error:',err);
+        hideLoadingOverlay();
+        document.getElementById('auth-screen').style.display='flex';
+        document.getElementById('live-badge').style.display='none';
+        state.currentUser=null;
+        // Show error in auth screen
+        const errEl=document.getElementById('auth-error');
+        if(errEl){errEl.textContent='Error al cargar: '+err.message;errEl.classList.add('show');}
+      }
     } else {
       hideLoadingOverlay();
       document.getElementById('app').classList.remove('visible');
